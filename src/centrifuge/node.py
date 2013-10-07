@@ -13,16 +13,6 @@ import tornado.options
 import tornado.httpserver
 from tornado.options import define, options
 
-from zmq.eventloop import ioloop
-
-
-# Install ZMQ ioloop instead of a tornado ioloop
-# http://zeromq.github.com/pyzmq/eventloop.html
-ioloop.install()
-
-from centrifuge.core import Application
-from centrifuge.log import logger
-
 
 define(
     "debug", default=False, help="tornado debug mode", type=bool
@@ -56,13 +46,31 @@ define(
 )
 
 define(
-    "zmq_xsub", default="tcp://localhost:6000", type=str,
-    help="XSUB socket address"
+    "zmq_xsub", default="tcp://localhost:6000", type=str, help="XSUB socket address"
 )
 
 define(
-    "zmq_xpub", default="tcp://localhost:6001", type=str,
-    help="XPUB socket address"
+    "zmq_xpub", default="tcp://localhost:6001", type=str, help="XPUB socket address"
+)
+
+define(
+    "base", default=False, help="use Base PUB/SUB (single node compatible only)", type=bool
+)
+
+define(
+    "redis", default=False, help="use Redis for PUB/SUB", type=bool
+)
+
+define(
+    "redis_host", default="localhost", help="Redis host", type=str
+)
+
+define(
+    "redis_port", default=6379, help="Redis port", type=int
+)
+
+define(
+    "redis_db", default=0, help="Redis database number", type=int
 )
 
 define(
@@ -72,6 +80,17 @@ define(
 
 tornado.options.parse_command_line()
 
+
+if not options.redis and not options.base:
+
+    from zmq.eventloop import ioloop
+
+    # Install ZMQ ioloop instead of a tornado ioloop
+    # http://zeromq.github.com/pyzmq/eventloop.html
+    ioloop.install()
+
+from centrifuge.log import logger
+from centrifuge.core import Application
 
 from sockjs.tornado import SockJSRouter
 
@@ -204,7 +223,24 @@ def main():
     AdminSocketHandler.application = app
     Client.application = app
 
+    if options.base:
+        from centrifuge.pubsub.base import BasePubSub as PubSub
+    elif options.redis:
+        from centrifuge.pubsub.redis import PubSub
+    else:
+        from centrifuge.pubsub.zeromq import PubSub
+
+    app.pubsub = PubSub(app)
+
     app.initialize()
+
+    magic_project_id = custom_settings.get('magic_project_id')
+    if magic_project_id:
+        app.MAGIC_PROJECT_ID = magic_project_id
+
+    magic_project_param = custom_settings.get('magic_project_param')
+    if magic_project_param:
+        app.MAGIC_PROJECT_PARAM = magic_project_param
 
     # summarize run configuration writing it into logger
     logger.info("Tornado port: {0}".format(options.port))

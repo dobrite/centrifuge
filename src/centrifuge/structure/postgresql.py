@@ -49,9 +49,10 @@ def on_connection_ready(structure, ready_callback):
 
     namespace = 'CREATE TABLE IF NOT EXISTS namespaces (id SERIAL, ' \
                 '_id varchar(24) UNIQUE, project_id varchar(24), ' \
-                'name varchar(100) NOT NULL UNIQUE, publish bool, ' \
+                'name varchar(100) NOT NULL, publish bool, ' \
                 'is_watching bool, presence bool, history bool, history_size integer, ' \
-                'is_private bool, auth_address varchar(255), join_leave bool)'
+                'is_private bool, auth_address varchar(255), join_leave bool, ' \
+                'constraint namespaces_unique unique(project_id, name))'
 
     yield momoko.Op(db.execute, project, ())
     yield momoko.Op(db.execute, namespace, ())
@@ -264,17 +265,16 @@ def namespace_edit(db, namespace, **kwargs):
 
 
 @coroutine
-def namespace_delete(db, project, namespace_name):
+def namespace_delete(db, namespace_id):
     """
     Delete namespace from project. Also delete all related entries from
     event collection.
     """
     haystack = {
-        'project_id': project['_id'],
-        'name': namespace_name
+        '_id': namespace_id
     }
 
-    query = "DELETE FROM namespaces WHERE name=%(name)s AND project_id=%(project_id)s"
+    query = "DELETE FROM namespaces WHERE _id=%(_id)s"
 
     try:
         yield momoko.Op(

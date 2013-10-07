@@ -36,16 +36,15 @@ or `PostgreSQL <http://www.postgresql.org/>`_ backends instead of SQLite for str
     :width: 650 px
 
 
-When it can be helpful
+Where it can be useful
 ----------------------
 
-Everywhere you need real-time web page updates and do not want to use existing external hosted services
-like pusher.com or pubnub.com.
+Everywhere you need real-time web page updates.
 
 There are tons of use cases where Centrifuge could be helpful - chat, graphs,
 comments, counters, games etc.
 
-Or you just want to know how many users currently watching web page and who are they.
+Or you just want to know how many users currently watching web page and who they are.
 
 
 How it works
@@ -159,6 +158,14 @@ And to start proxy:
 
 
 Now instances connected through XPUB/XSUB proxy. Success!
+
+
+If you want to use Redis for PUB/SUB communication instead of ZeroMQ you
+should run Centrifuge in this way:
+
+.. code-block:: bash
+
+    centrifuge --config=config.json --redis --redis_host=localhost --redis_port=6379
 
 
 Our next step will be talking about how presence and history data for channels work.

@@ -25,7 +25,7 @@ from jsonschema import validate, ValidationError
 from . import auth
 from .response import Response
 from .log import logger
-from .schema import req_schema, client_params_schema
+from .schema import req_schema, client_api_schema
 
 
 @coroutine
@@ -148,11 +148,11 @@ class Client(object):
             yield self.sock.close()
             raise Return((True, None))
 
-        if method not in client_params_schema:
+        if method not in client_api_schema:
             raise Return((None, 'unknown method %s' % method))
 
         try:
-            validate(params, client_params_schema[method])
+            validate(params, client_api_schema[method])
         except ValidationError as e:
             response = Response(uid=uid, method=method, error=str(e))
             self.send(response.as_message())
@@ -241,10 +241,10 @@ class Client(object):
 
             try:
                 response = yield http_client.fetch(request)
-            except:
+            except Exception as e:
                 # let it fail and try again after some timeout
                 # until we have auth attempts
-                pass
+                logger.debug(e)
             else:
                 # reset back-off attempts
                 self.application.back_off[project_id] = 0
@@ -287,7 +287,7 @@ class Client(object):
         self.is_authenticated = True
         self.project_id = project_id
         self.user = user
-        self.default_user_info = json_encode({'user_id': self.user})
+        self.default_user_info = json_encode({'user_id': self.user, 'client_id': self.uid})
         self.channels = {}
         self.presence_ping = PeriodicCallback(
             self.send_presence_ping, self.application.presence_ping_interval
@@ -532,7 +532,7 @@ class Client(object):
             "data": json_decode(user_info)
         }
         self.application.pubsub.publish(
-            subscription_key, json_encode(message), method='join'
+            subscription_key, message, method='join'
         )
 
     def send_leave_message(self, namespace_name, channel):
@@ -550,5 +550,5 @@ class Client(object):
             "data": json_decode(user_info)
         }
         self.application.pubsub.publish(
-            subscription_key, json_encode(message), method='leave'
+            subscription_key, message, method='leave'
         )

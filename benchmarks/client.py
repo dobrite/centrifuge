@@ -22,6 +22,7 @@ except IndexError:
 
 COUNT = 0
 LIMIT = 1*NUM_CLIENTS
+NUM_CLIENTS_SUBSCRIBED = 0
 
 
 class ClientProtocol(WebSocketClientProtocol):
@@ -35,7 +36,6 @@ class ClientProtocol(WebSocketClientProtocol):
     _subscribed = False
 
     def centrifuge_connect(self):
-
         message = {
             "method": "connect",
             "params": {
@@ -65,7 +65,7 @@ class ClientProtocol(WebSocketClientProtocol):
             "params": {
                 "namespace": "test",
                 "channel": "test",
-                "data": "test"
+                "data": {"input": "test"}
             }
         }
 
@@ -98,19 +98,55 @@ class ClientProtocol(WebSocketClientProtocol):
             self.on_centrifuge_message(msg)
 
 
+class WebsocketFactory(WebSocketClientFactory):
+
+    clients = []
+
+    def start_publishing(self):
+        for client in self.clients:
+            client.centrifuge_publish()
+
+
 class ThroughputClientProtocol(ClientProtocol):
 
     def on_centrifuge_subscribed(self):
-        self.start = time.time()
-        self.centrifuge_publish()
+        global NUM_CLIENTS_SUBSCRIBED
+        NUM_CLIENTS_SUBSCRIBED += 1
+        self.factory.clients.append(self)
+        if NUM_CLIENTS_SUBSCRIBED == NUM_CLIENTS:
+            print 'all clients subscribed'
+            self.factory.start = time.time()
+            self.factory.start_publishing()
 
     def on_centrifuge_message(self, msg):
         global COUNT
         COUNT += 1
         if COUNT == NUM_CLIENTS*NUM_CLIENTS:
             stop = time.time()
-            print stop - self.start
+            print stop - self.factory.start
             reactor.stop()
+
+
+class ReceiveClientProtocol(ClientProtocol):
+
+    def on_centrifuge_subscribed(self):
+        global NUM_CLIENTS_SUBSCRIBED
+        NUM_CLIENTS_SUBSCRIBED += 1
+        self.factory.clients.append(self)
+        if NUM_CLIENTS_SUBSCRIBED == NUM_CLIENTS:
+            print 'all clients subscribed'
+            self.factory.start = time.time()
+
+    def on_centrifuge_message(self, msg):
+        global COUNT
+        COUNT += 1
+        if COUNT == 1:
+            self.factory.start = time.time()
+
+        if COUNT == NUM_CLIENTS:
+            stop = time.time()
+            print stop - self.factory.start
+            COUNT = 0
 
 
 def generate_token(secret_key, project_id, user_id):
@@ -127,10 +163,9 @@ if __name__ == '__main__':
         print "Need the WebSocket server address, i.e. ws://localhost:9000"
         sys.exit(1)
 
-    factory = WebSocketClientFactory(URL)
-    factory.protocol = ThroughputClientProtocol
-
-    for i in range(NUM_CLIENTS):
+    for _ in range(NUM_CLIENTS):
+        factory = WebsocketFactory(URL)
+        factory.protocol = ThroughputClientProtocol
         connectWS(factory)
 
     reactor.run()

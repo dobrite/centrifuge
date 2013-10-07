@@ -1,3 +1,28 @@
+v0.3.0
+======
+* centrifuge.dom.js - jQuery plugin to add real-time even easier.
+* Base Pub/Sub for single node.
+* Refactor web interface, make it more mobile and human friendly, add 'actions' section to make channel operations.
+* A couple of API methods to get project and namespace by name.
+* fix UnicodeDecodeError in web interface.
+
+v0.2.9
+======
+* fix API bug
+
+v0.2.8
+======
+* experimental structure API support
+* experimental Redis support for PUB/SUB
+* setup.py options to build Centrifuge without ZeroMQ, PostgreSQL, MongoDB or Redis support.
+* javascript client now lives on top of repo in a folder `javascript`
+* rpm improvements
+
+v0.2.7
+======
+* fix unique constraints for SQLite and PostgreSQL
+* add client_id to default user info
+
 v0.2.6
 ======
 * fix handling control messages

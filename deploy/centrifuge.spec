@@ -9,7 +9,7 @@ Release: %{release}
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildRequires: python rpm-build redhat-rpm-config zeromq3-devel postgresql-devel
-Requires: python supervisor zeromq3
+Requires: python zeromq3
 License: BSD
 
 
@@ -39,6 +39,7 @@ rm -rf %{name}/src/.idea*
 virtualenv --distribute %{name}/env
 %{name}/env/bin/easy_install -U distribute
 %{name}/env/bin/pip install -r %{name}/src/src/requirements.txt --upgrade
+%{name}/env/bin/pip install supervisor
 virtualenv --relocatable %{name}/env
 
 # remove pyc
@@ -46,7 +47,6 @@ find %{name}/ -type f -name "*.py[co]" -delete
 
 # replace builddir path
 find %{name}/ -type f -exec sed -i "s:%{_builddir}:%{__prefix}:" {} \;
-
 
 %install
 mkdir -p %{buildroot}%{__prefix}/%{name}
@@ -60,10 +60,11 @@ mv %{name} %{buildroot}%{__prefix}/
 
 # configs
 mkdir -p %{buildroot}%{_sysconfdir}/%{name}
-%{__install} -p -D -m 0755 %{buildroot}%{__prefix}/%{name}/src/src/config.json %{buildroot}%{_sysconfdir}/%{name}/centrifuge.json
+%{__install} -p -D -m 0755 %{buildroot}%{__prefix}/%{name}/src/deploy/centrifuge.json %{buildroot}%{_sysconfdir}/%{name}/centrifuge.json
 
-# supervisor config
-%{__install} -p -D -m 0755 %{buildroot}%{__prefix}/%{name}/src/deploy/centrifuge.conf %{buildroot}%{_sysconfdir}/supervisor/conf.d/centrifuge.conf
+# supervisord
+%{__install} -p -D -m 0755 %{buildroot}%{__prefix}/%{name}/src/deploy/supervisord.conf %{buildroot}%{_sysconfdir}/%{name}/supervisord.conf
+%{__install} -p -D -m 0755 %{buildroot}%{__prefix}/%{name}/src/deploy/centrifuge.supervisor %{buildroot}%{_sysconfdir}/%{name}/centrifuge.supervisor
 
 mkdir -p %{buildroot}/var/log/%{name}
 mkdir -p %{buildroot}/var/run/%{name}
@@ -72,12 +73,14 @@ mkdir -p %{buildroot}/var/db/%{name}
 %post
 
 if [ $1 -gt 1 ]; then
+    /etc/init.d/centrifuge restart
     echo "Upgraded"
 else
     echo "Installed"
-    echo "1. Fill Supervisor config file for Centrifuge"
-    echo "2. Fill Centrifuge's json config file"
-    echo "3. Run Centrifuge"
+    echo "1. Fill Supervisor config file at /etc/centrifuge/supervisord.conf"
+    echo "1. Fill Supervisor config file for Centrifuge at /etc/centrifuge/centrifuge.supervisor"
+    echo "2. Fill Centrifuge config file at /etc/centrifuge/centrifuge.json"
+    echo "3. Run /etc/init.d/centrifuge start"
 fi
 
 
@@ -90,7 +93,8 @@ rm -rf %{buildroot}
 %{__prefix}/%{name}/
 %{_initrddir}/%{name}/
 %config(noreplace) %{_sysconfdir}/%{name}/centrifuge.json
-%config(noreplace) %{_sysconfdir}/supervisor/conf.d/centrifuge.conf
+%config(noreplace) %{_sysconfdir}/%{name}/centrifuge.supervisor
+%config(noreplace) %{_sysconfdir}/%{name}/supervisord.conf
 
 %defattr(-,%{name},%{name})
 /var/log/%{name}/

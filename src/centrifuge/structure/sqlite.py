@@ -31,18 +31,19 @@ def init_storage(structure, settings, ready_callback):
     conn.row_factory = dict_factory
     cursor = conn.cursor()
 
-    project = 'CREATE TABLE IF NOT EXISTS projects (id SERIAL, _id varchar(24) UNIQUE, ' \
-              'name varchar(100) NOT NULL UNIQUE, display_name ' \
+    project = 'CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, ' \
+              '_id varchar(24) UNIQUE, name varchar(100) NOT NULL UNIQUE, display_name ' \
               'varchar(100) NOT NULL, auth_address varchar(255), ' \
               'max_auth_attempts integer, back_off_interval integer, ' \
               'back_off_max_timeout integer, secret_key varchar(32), ' \
               'default_namespace varchar(32))'
 
-    namespace = 'CREATE TABLE IF NOT EXISTS namespaces (id SERIAL, ' \
+    namespace = 'CREATE TABLE IF NOT EXISTS namespaces (id INTEGER PRIMARY KEY AUTOINCREMENT, ' \
                 '_id varchar(24) UNIQUE, project_id varchar(24), ' \
-                'name varchar(100) NOT NULL UNIQUE, publish bool, ' \
-                'is_watching bool, presence bool, history bool, history_size integer, ' \
-                'is_private bool, auth_address varchar(255), join_leave bool)'
+                'name varchar(100) NOT NULL, ' \
+                'publish bool, is_watching bool, presence bool, history bool, ' \
+                'history_size integer, is_private bool, auth_address varchar(255), join_leave bool, ' \
+                'UNIQUE (project_id, name) ON CONFLICT ABORT)'
 
     cursor.execute(project, ())
     conn.commit()
@@ -213,7 +214,7 @@ def namespace_create(cursor, project, **kwargs):
         on_error(e)
     else:
         cursor.connection.commit()
-        raise Return((to_insert, None))
+        raise Return((to_return, None))
 
 
 @coroutine
@@ -255,13 +256,13 @@ def namespace_edit(cursor, namespace, **kwargs):
 
 
 @coroutine
-def namespace_delete(cursor, project, namespace_name):
+def namespace_delete(cursor, namespace_id):
     """
     Delete namespace from project. Also delete all related entries from
     event collection.
     """
-    haystack = (namespace_name, project['_id'])
-    query = "DELETE FROM namespaces WHERE name=? AND project_id=?"
+    haystack = (namespace_id,)
+    query = "DELETE FROM namespaces WHERE _id=?"
     try:
         cursor.execute(query, haystack)
     except Exception as e:
